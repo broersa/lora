@@ -1,8 +1,6 @@
 package lora
 
-import (
 //	"fmt"
-)
 
 const (
 	JoinRequest         byte = 0
@@ -17,15 +15,15 @@ const (
 	LoRaWANR1 byte = 0
 )
 
-type mhdr struct {
+type MHDR struct {
 	MType byte
 	Major byte
 }
 
-func ParseMHDR(b byte) *mhdr {
-	return &mhdr{b >> 5, b & 0x3}
+func ParseMHDR(b byte) (*MHDR, error) {
+	return &MHDR{b >> 5, b & 0x3}, nil
 }
 
-func MarshallMHDR(mhdr *mhdr) byte {
-	return (mhdr.MType << 5) + mhdr.Major
+func MarshallMHDR(mhdr *MHDR) (byte, error) {
+	return (mhdr.MType << 5) + mhdr.Major, nil
 }
