@@ -1,3 +1,5 @@
 package lora
 
-type mic uint32
+type MIC struct {
+	MIC []byte
+}

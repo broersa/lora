@@ -2,45 +2,61 @@ package lora
 
 import (
 	"bytes"
-	"encoding/binary"
-	"fmt"
+	"errors"
+
 	"github.com/jacobsa/crypto/cmac"
 )
 
-type joinrequest struct {
-	AppEUI   uint64
-	DevEUI   uint64
-	DevNonce uint16
+// JoinRequest ...
+type JoinRequest struct {
+	mhdr     *MHDR
+	appeui   []byte
+	deveui   []byte
+	devnonce []byte
+	mic      []byte
 }
 
-func ParseJoinRequest(mhdr byte, macpayload []byte, mic uint32) *joinrequest {
-	return &joinrequest{binary.LittleEndian.Uint64(macpayload[0:8]),
-		binary.LittleEndian.Uint64(macpayload[8:16]),
-		binary.LittleEndian.Uint16(macpayload[16:18])}
+// NewJoinRequest ...
+func NewJoinRequest(appkey []byte, joinrequest []byte) (*JoinRequest, error) {
+	mhdr, err := NewMHDRFromByte(joinrequest[0])
+	if err != nil {
+		return nil, err
+	}
+	returnvalue := &JoinRequest{mhdr, joinrequest[1:9], joinrequest[9:17], joinrequest[17:19], joinrequest[19:23]}
+	valid, err := returnvalue.validateJoinRequest(appkey)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, errors.New("MIC validation failed")
+	}
+	return returnvalue, nil
 }
 
-func ValidateJoinRequest(appkey []byte, mhdr byte, x []byte /* appeui uint64, deveui uint64, devnonce uint16,*/, mic uint32) (bool, error) {
+// GetMHDR ...
+func (joinrequest *JoinRequest) GetMHDR() *MHDR {
+	return joinrequest.mhdr
+}
+
+// GetDevNonce ...
+func (joinrequest *JoinRequest) GetDevNonce() []byte {
+	return joinrequest.devnonce
+}
+
+func (joinrequest *JoinRequest) validateJoinRequest(appkey []byte) (bool, error) {
 	b0 := new(bytes.Buffer)
-	b0.WriteByte(mhdr)
-	b0.Write(x)
-	//binary.Write(b0, binary.LittleEndian, appeui)
-	//binary.Write(b0, binary.LittleEndian, deveui)
-	//binary.Write(b0, binary.LittleEndian, devnonce)
-
+	b0.WriteByte(joinrequest.mhdr)
+	b0.Write(joinrequest.appeui)
+	b0.Write(joinrequest.deveui)
+	b0.Write(joinrequest.devnonce)
 	hash, err := cmac.New(appkey)
 	if err != nil {
-		//log.Printf("Failed to initialize CMAC: %s", err.Error())
 		return false, err
 	}
-
 	_, err = hash.Write(b0.Bytes())
 	if err != nil {
-		//log.Printf("Failed to hash data: %s", err.Error())
 		return false, err
 	}
-	fmt.Printf("%v\n", hash.Sum([]byte{}))
-
-	calculatedMIC := binary.LittleEndian.Uint32(hash.Sum([]byte{})[0:4])
-	fmt.Printf("%d\n", calculatedMIC)
-	return calculatedMIC == mic, nil
+	calculatedMIC := hash.Sum([]byte{})[0:4]
+	return calculatedMIC == joinrequest.mic, nil
 }
