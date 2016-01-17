@@ -27,13 +27,13 @@ type MHDR struct {
 
 // NewMHDRFromByte ...
 func NewMHDRFromByte(mhdr byte) (*MHDR, error) {
-	returnvalue := &MHDR{mtype: b >> 5, major: b & 0x3}
+	returnvalue := &MHDR{mtype: mhdr >> 5, major: mhdr & 0x3}
 	if !(returnvalue.mtype == MTypeJoinRequest ||
 		returnvalue.mtype == MTypeConfirmedDataUp ||
 		returnvalue.mtype == MTypeUnconfirmedDataUp) {
 		return nil, errors.New("Not a valid MType")
 	}
-	if mhdr.Major != MajorLoRaWANR1 {
+	if returnvalue.major != MajorLoRaWANR1 {
 		return nil, errors.New("Not a valic Major")
 	}
 	return returnvalue, nil
@@ -41,8 +41,8 @@ func NewMHDRFromByte(mhdr byte) (*MHDR, error) {
 
 // NewMHDRFromValues ...
 func NewMHDRFromValues(mtype byte, major byte) (*MHDR, error) {
-	returnvalue := &MHDR{mtype: b >> 5, major: b & 0x3}
-	if !(returnvalue.mtype == MTypeJoinAccept ||
+	returnvalue := &MHDR{mtype: mtype, major: major}
+	if !(mtype == MTypeJoinAccept ||
 		returnvalue.mtype == MTypeConfirmedDataDown ||
 		returnvalue.mtype == MTypeUnconfirmedDataDown) {
 		return nil, errors.New("Not a valid MType")
@@ -55,15 +55,15 @@ func NewMHDRFromValues(mtype byte, major byte) (*MHDR, error) {
 
 // Marshal ...
 func (mhdr *MHDR) Marshal() byte {
-	return (mhdr.MType << 5) + mhdr.Major
+	return (mhdr.mtype << 5) + mhdr.major
 }
 
 // IsJoinRequest ...
 func (mhdr *MHDR) IsJoinRequest() bool {
-	return mhdr.MType == MTypeJoinRequest
+	return mhdr.mtype == MTypeJoinRequest
 }
 
 // IsJoinAccept ...
 func (mhdr *MHDR) IsJoinAccept() bool {
-	return mhdr.MType == MTypeJoinAccept
+	return mhdr.mtype == MTypeJoinAccept
 }
