@@ -17,18 +17,30 @@ type JoinRequest struct {
 }
 
 // NewJoinRequest ...
-func NewJoinRequest(appkey []byte, joinrequest []byte) (*JoinRequest, error) {
+func NewJoinRequest(joinrequest []byte) (*JoinRequest, error) {
 	mhdr, err := NewMHDRFromByte(joinrequest[0])
 	if err != nil {
 		return nil, err
 	}
+	if !mhdr.IsJoinRequest() {
+		return nil, errors.New("Not a join request message")
+	}
 	returnvalue := &JoinRequest{mhdr, joinrequest[1:9], joinrequest[9:17], joinrequest[17:19], joinrequest[19:23]}
+	return returnvalue, nil
+}
+
+// NewJoinRequestValidated ...
+func NewJoinRequestValidated(appkey []byte, joinrequest []byte) (*JoinRequest, error) {
+	returnvalue, err := NewJoinRequest(joinrequest)
+	if err != nil {
+		return nil, err
+	}
 	valid, err := returnvalue.validateJoinRequest(appkey)
 	if err != nil {
 		return nil, err
 	}
 	if !valid {
-		return nil, errors.New("MIC validation failed")
+		return nil, NewErrorMICValidationFailed()
 	}
 	return returnvalue, nil
 }
@@ -45,7 +57,7 @@ func (joinrequest *JoinRequest) GetDevNonce() []byte {
 
 func (joinrequest *JoinRequest) validateJoinRequest(appkey []byte) (bool, error) {
 	b0 := new(bytes.Buffer)
-	b0.WriteByte(joinrequest.mhdr)
+	b0.WriteByte(joinrequest.mhdr.Marshal())
 	b0.Write(joinrequest.appeui)
 	b0.Write(joinrequest.deveui)
 	b0.Write(joinrequest.devnonce)
@@ -58,5 +70,5 @@ func (joinrequest *JoinRequest) validateJoinRequest(appkey []byte) (bool, error)
 		return false, err
 	}
 	calculatedMIC := hash.Sum([]byte{})[0:4]
-	return calculatedMIC == joinrequest.mic, nil
+	return bytes.Equal(calculatedMIC, joinrequest.mic), nil
 }

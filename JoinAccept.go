@@ -4,22 +4,107 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/rand"
-	"encoding/binary"
 	"errors"
 
 	"github.com/jacobsa/crypto/cmac"
 )
 
-func JoinAcceptGetAppNonce() ([]byte, error) {
-	b := make([]byte, 3)
-	_, err := rand.Read(b)
+// JoinAccept ...
+type JoinAccept struct {
+	mhdr       *MHDR
+	appnonce   []byte
+	netid      []byte
+	devaddr    []byte
+	dlsettings byte
+	rxdelay    byte
+	cflist     []byte
+	mic        []byte
+}
+
+// NewJoinAccept ...
+func NewJoinAccept(appkey []byte, nwkid byte) (*JoinAccept, error) {
+	returnvalue := &JoinAccept{}
+	mhdr, err := NewMHDRFromValues(MTypeJoinAccept, MajorLoRaWANR1)
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
+	returnvalue.mhdr = mhdr
+	appnonce, err := returnvalue.getAppNonce()
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.appnonce = appnonce
+	netid, err := returnvalue.getNetID(nwkid)
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.netid = netid
+	devaddr, err := returnvalue.getDevAddr(nwkid)
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.devaddr = devaddr
+	rxdelay, err := returnvalue.getRxDelay()
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.rxdelay = rxdelay
+	cflist, err := returnvalue.getCFList()
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.cflist = cflist
+	mic, err := returnvalue.calcMIC(appkey)
+	if err != nil {
+		return nil, err
+	}
+	returnvalue.mic = mic
+	return returnvalue, nil
 }
 
-func JoinAcceptGetNetID(nwkid byte) ([]byte, error) {
+// Marshal ...
+func (joinaccept *JoinAccept) Marshal(appkey []byte) ([]byte, error) {
+	block, err := aes.NewCipher(appkey)
+	if err != nil {
+		return nil, err
+	}
+	b0 := new(bytes.Buffer)
+	b0.Write(joinaccept.appnonce)
+	b0.Write(joinaccept.netid)
+	b0.Write(joinaccept.devaddr)
+	b0.WriteByte(joinaccept.dlsettings)
+	b0.WriteByte(joinaccept.rxdelay)
+	b0.Write(joinaccept.cflist)
+	b0.Write(joinaccept.mic)
+	plaintext := b0.Bytes()
+	bs := block.BlockSize()
+	if len(plaintext)%bs != 0 {
+		return nil, errors.New("Encrypt Need a multiple of the blocksize")
+	}
+	ciphertext := make([]byte, len(plaintext))
+	ct := ciphertext
+	for len(plaintext) > 0 {
+		block.Decrypt(ciphertext, plaintext)
+		plaintext = plaintext[bs:]
+		ciphertext = ciphertext[bs:]
+	}
+	b1 := new(bytes.Buffer)
+	b1.WriteByte(joinaccept.mhdr.Marshal())
+	b1.Write(ct)
+	b1.Write(joinaccept.mic)
+	return b1.Bytes(), nil
+}
+
+func (joinaccept *JoinAccept) getAppNonce() ([]byte, error) {
+	returnvalue := make([]byte, 3)
+	_, err := rand.Read(returnvalue)
+	if err != nil {
+		return nil, err
+	}
+	return returnvalue, nil
+}
+
+func (joinaccept *JoinAccept) getNetID(nwkid byte) ([]byte, error) {
 	b := make([]byte, 3)
 	b[0] = 0
 	b[1] = 0
@@ -27,24 +112,24 @@ func JoinAcceptGetNetID(nwkid byte) ([]byte, error) {
 	return b, nil
 }
 
-func JoinAcceptGetDevAddr(nwkid byte) (uint32, error) {
+func (joinaccept *JoinAccept) getDevAddr(nwkid byte) ([]byte, error) {
 	b := make([]byte, 4)
 	b[0] = 0
 	b[1] = 0
 	b[2] = 0
 	b[3] = 0
-	return binary.LittleEndian.Uint32(b), nil
+	return b, nil
 }
 
-func JoinAcceptGetDLSettings() (byte, error) {
+func (joinaccept *JoinAccept) getDLSettings() (byte, error) {
 	return 0 + 0 + 7, nil // 7 = max datarate ?
 }
 
-func JoinAcceptGetRxDelay() (byte, error) {
+func (joinaccept *JoinAccept) getRxDelay() (byte, error) {
 	return 0, nil
 }
 
-func JoinAcceptGetCFList() ([]byte, error) {
+func (joinaccept *JoinAccept) getCFList() ([]byte, error) {
 	b := make([]byte, 16)
 	b[0] = 0
 	b[1] = 0
@@ -71,15 +156,15 @@ func JoinAcceptGetCFList() ([]byte, error) {
 	return b, nil
 }
 
-func JoinAcceptCalcMIC(appkey []byte, mhdr byte, appnonce []byte, netid []byte, devaddr uint32, dlsettings byte, rxdelay byte, cflist []byte) ([]byte, error) {
+func (joinaccept *JoinAccept) calcMIC(appkey []byte) ([]byte, error) {
 	b0 := new(bytes.Buffer)
-	b0.WriteByte(mhdr)
-	b0.Write(appnonce)
-	b0.Write(netid)
-	binary.Write(b0, binary.LittleEndian, devaddr)
-	b0.WriteByte(dlsettings)
-	b0.WriteByte(rxdelay)
-	//b0.Write(cflist)
+	b0.WriteByte(joinaccept.mhdr.Marshal())
+	b0.Write(joinaccept.appnonce)
+	b0.Write(joinaccept.netid)
+	b0.Write(joinaccept.devaddr)
+	b0.WriteByte(joinaccept.dlsettings)
+	b0.WriteByte(joinaccept.rxdelay)
+	b0.Write(joinaccept.cflist)
 
 	hash, err := cmac.New(appkey)
 	if err != nil {
@@ -90,38 +175,7 @@ func JoinAcceptCalcMIC(appkey []byte, mhdr byte, appnonce []byte, netid []byte, 
 	if err != nil {
 		return nil, err
 	}
+
 	calculatedMIC := hash.Sum([]byte{})[0:4]
 	return calculatedMIC, nil
-
-}
-
-func JoinAcceptEncrypt(appkey []byte, appnonce []byte, netid []byte, devaddr uint32, dlsettings byte, rxdelay byte, cflist []byte, mic []byte) ([]byte, error) {
-	block, err := aes.NewCipher(appkey)
-	if err != nil {
-		return nil, err
-	}
-	b0 := new(bytes.Buffer)
-	b0.Write(appnonce)
-	b0.Write(netid)
-	binary.Write(b0, binary.LittleEndian, devaddr)
-	b0.WriteByte(dlsettings)
-	b0.WriteByte(rxdelay)
-	//b0.Write(cflist)
-	b0.Write(mic)
-	plaintext := b0.Bytes()
-	//pt := plaintext
-
-	bs := block.BlockSize()
-	if len(plaintext)%bs != 0 {
-		return nil, errors.New("JoinAccept: Encrypt Need a multiple of the blocksize")
-	}
-
-	ciphertext := make([]byte, len(plaintext))
-	ct := ciphertext
-	for len(plaintext) > 0 {
-		block.Decrypt(ciphertext, plaintext)
-		plaintext = plaintext[bs:]
-		ciphertext = ciphertext[bs:]
-	}
-	return ct, nil
 }
