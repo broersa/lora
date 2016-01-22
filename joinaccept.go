@@ -74,7 +74,7 @@ func (joinaccept *JoinAccept) Marshal(appkey []byte) ([]byte, error) {
 	b0.Write(joinaccept.devaddr)
 	b0.WriteByte(joinaccept.dlsettings)
 	b0.WriteByte(joinaccept.rxdelay)
-	b0.Write(joinaccept.cflist)
+	//	b0.Write(joinaccept.cflist)
 	b0.Write(joinaccept.mic)
 	plaintext := b0.Bytes()
 	bs := block.BlockSize()
@@ -164,7 +164,7 @@ func (joinaccept *JoinAccept) calcMIC(appkey []byte) ([]byte, error) {
 	b0.Write(joinaccept.devaddr)
 	b0.WriteByte(joinaccept.dlsettings)
 	b0.WriteByte(joinaccept.rxdelay)
-	b0.Write(joinaccept.cflist)
+	//	b0.Write(joinaccept.cflist)
 
 	hash, err := cmac.New(appkey)
 	if err != nil {

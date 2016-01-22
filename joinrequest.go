@@ -55,6 +55,11 @@ func (joinrequest *JoinRequest) GetDevNonce() []byte {
 	return joinrequest.devnonce
 }
 
+// GetAppEUI ...
+func (joinrequest *JoinRequest) GetAppEUI() []byte {
+	return joinrequest.appeui
+}
+
 func (joinrequest *JoinRequest) validateJoinRequest(appkey []byte) (bool, error) {
 	b0 := new(bytes.Buffer)
 	b0.WriteByte(joinrequest.mhdr.Marshal())

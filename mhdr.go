@@ -1,7 +1,5 @@
 package lora
 
-import "errors"
-
 const (
 	// MajorLoRaWANR1 major
 	MajorLoRaWANR1 byte = 0
@@ -31,10 +29,10 @@ func NewMHDRFromByte(mhdr byte) (*MHDR, error) {
 	if !(returnvalue.mtype == MTypeJoinRequest ||
 		returnvalue.mtype == MTypeConfirmedDataUp ||
 		returnvalue.mtype == MTypeUnconfirmedDataUp) {
-		return nil, errors.New("Not a valid MType")
+		return nil, NewErrorMTypeValidationFailed()
 	}
 	if returnvalue.major != MajorLoRaWANR1 {
-		return nil, errors.New("Not a valic Major")
+		return nil, NewErrorMajorValidationFailed()
 	}
 	return returnvalue, nil
 }
@@ -45,10 +43,10 @@ func NewMHDRFromValues(mtype byte, major byte) (*MHDR, error) {
 	if !(mtype == MTypeJoinAccept ||
 		returnvalue.mtype == MTypeConfirmedDataDown ||
 		returnvalue.mtype == MTypeUnconfirmedDataDown) {
-		return nil, errors.New("Not a valid MType")
+		return nil, NewErrorMTypeValidationFailed()
 	}
 	if major != MajorLoRaWANR1 {
-		return nil, errors.New("Not a valic Major")
+		return nil, NewErrorMajorValidationFailed()
 	}
 	return returnvalue, nil
 }
