@@ -55,6 +55,11 @@ func (joinrequest *JoinRequest) GetDevNonce() []byte {
 	return joinrequest.devnonce
 }
 
+// GetDevEUI ...
+func (joinrequest *JoinRequest) GetDevEUI() []byte {
+	return joinrequest.deveui
+}
+
 // GetAppEUI ...
 func (joinrequest *JoinRequest) GetAppEUI() []byte {
 	return joinrequest.appeui
