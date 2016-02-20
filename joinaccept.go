@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 
 	"github.com/jacobsa/crypto/cmac"
@@ -22,7 +23,7 @@ type JoinAccept struct {
 }
 
 // NewJoinAccept ...
-func NewJoinAccept(appkey []byte, nwkid byte) (*JoinAccept, error) {
+func NewJoinAccept(appkey []byte, nwkid byte, nwkaddr uint32) (*JoinAccept, error) {
 	returnvalue := &JoinAccept{}
 	mhdr, err := NewMHDRFromValues(MTypeJoinAccept, MajorLoRaWANR1)
 	if err != nil {
@@ -34,7 +35,7 @@ func NewJoinAccept(appkey []byte, nwkid byte) (*JoinAccept, error) {
 		return nil, err
 	}
 	returnvalue.appnonce = appnonce
-	netid, err := returnvalue.getNetID(nwkid)
+	netid, err := returnvalue.getNetID()
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,8 @@ func (joinaccept *JoinAccept) getAppNonce() ([]byte, error) {
 	return returnvalue, nil
 }
 
-func (joinaccept *JoinAccept) getNetID(nwkid byte) ([]byte, error) {
+// getNetID: Some constant? 0 for now
+func (joinaccept *JoinAccept) getNetID() ([]byte, error) {
 	b := make([]byte, 3)
 	b[0] = 0
 	b[1] = 0
@@ -112,12 +114,10 @@ func (joinaccept *JoinAccept) getNetID(nwkid byte) ([]byte, error) {
 	return b, nil
 }
 
-func (joinaccept *JoinAccept) getDevAddr(nwkid byte) ([]byte, error) {
+func (joinaccept *JoinAccept) getDevAddr(nwkid byte, nwkaddr uint32) ([]byte, error) {
+	a := (uint32)(nwkid*16777216) + nwkaddr
 	b := make([]byte, 4)
-	b[0] = 0
-	b[1] = 0
-	b[2] = 0
-	b[3] = 0
+	binary.LittleEndian.PutUint32(b, a)
 	return b, nil
 }
 
