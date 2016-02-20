@@ -3,7 +3,6 @@ package lora
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/rand"
 	"encoding/binary"
 	"errors"
 
@@ -23,24 +22,20 @@ type JoinAccept struct {
 }
 
 // NewJoinAccept ...
-func NewJoinAccept(appkey []byte, nwkid byte, nwkaddr uint32) (*JoinAccept, error) {
+func NewJoinAccept(appkey []byte, nwkid byte, nwkaddr uint32, appnonce []byte) (*JoinAccept, error) {
 	returnvalue := &JoinAccept{}
 	mhdr, err := NewMHDRFromValues(MTypeJoinAccept, MajorLoRaWANR1)
 	if err != nil {
 		return nil, err
 	}
 	returnvalue.mhdr = mhdr
-	appnonce, err := returnvalue.getAppNonce()
-	if err != nil {
-		return nil, err
-	}
 	returnvalue.appnonce = appnonce
 	netid, err := returnvalue.getNetID()
 	if err != nil {
 		return nil, err
 	}
 	returnvalue.netid = netid
-	devaddr, err := returnvalue.getDevAddr(nwkid)
+	devaddr, err := returnvalue.getDevAddr(nwkid, nwkaddr)
 	if err != nil {
 		return nil, err
 	}
@@ -96,15 +91,6 @@ func (joinaccept *JoinAccept) Marshal(appkey []byte) ([]byte, error) {
 	return b1.Bytes(), nil
 }
 
-func (joinaccept *JoinAccept) getAppNonce() ([]byte, error) {
-	returnvalue := make([]byte, 3)
-	_, err := rand.Read(returnvalue)
-	if err != nil {
-		return nil, err
-	}
-	return returnvalue, nil
-}
-
 // getNetID: Some constant? 0 for now
 func (joinaccept *JoinAccept) getNetID() ([]byte, error) {
 	b := make([]byte, 3)
@@ -115,7 +101,7 @@ func (joinaccept *JoinAccept) getNetID() ([]byte, error) {
 }
 
 func (joinaccept *JoinAccept) getDevAddr(nwkid byte, nwkaddr uint32) ([]byte, error) {
-	a := (uint32)(nwkid*16777216) + nwkaddr
+	a := ((uint32)(nwkid) * 16777216) + nwkaddr
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, a)
 	return b, nil
